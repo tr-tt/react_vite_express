@@ -1,94 +1,87 @@
-let path = require('path')
-let fsp = require('fs/promises')
-let express = require('express')
+import fs from 'node:fs/promises'
+import express from 'express'
 
-const root = process.cwd()
 const isProduction = process.env.NODE_ENV === 'production'
+const port = process.env.PORT || 5173
+const base = process.env.BASE || '/'
 
-function resolve(p)
+const templateHtml = isProduction
+    ? await fs.readFile('./dist/client/index.html', 'utf-8')
+    : ''
+const ssrManifest = isProduction
+    ? await fs.readFile('./dist/client/ssr-manifest.json', 'utf-8')
+    : undefined
+
+const app = express()
+let vite
+
+if(!isProduction)
 {
-    return path.resolve(__dirname, p)
-}
+    const {createServer} = await import('vite')
 
-async function createServer()
-{
-    let app = express()
-    let vite
-
-    if(!isProduction)
-    {
-        vite = await require('vite').createServer(
-            {
-                root,
-                server:
-                {
-                    middlewareMode: true,
-                    appType: 'custom'
-                }
-            }
-        )
-
-        app.use(vite.middlewares);
-    }
-    else
-    {
-        app.use(require('compression')())
-        app.use(express.static(resolve('dist/client')))
-    }
-
-    app.use(
-        '*',
-        async (req, res) => 
+    vite = await createServer(
         {
-            let url = req.originalUrl
+            server: {middlewareMode: true},
+            appType: 'custom',
+            base
+        }
+    )
+  
+    app.use(vite.middlewares)
+}
+else
+{
+    const compression = (await import('compression')).default
+    const sirv = (await import('sirv')).default
 
-            try
-            {
-                let template
-                let render
-
-                if(!isProduction)
-                {
-                    template = await fsp.readFile(resolve('index.html'), 'utf8')
-                    template = await vite.transformIndexHtml(url, template)
-
-                    render = await vite
-                        .ssrLoadModule('src/entry.server.jsx')
-                        .then((m) => m.render)
-                }
-                else
-                {
-                    template = await fsp.readFile(resolve('dist/client/index.html'), 'utf8')
-
-                    render = require(resolve('dist/server/entry.server.js')).render
-                }
-
-                let html = template.replace('<!--app-html-->', render(url))
-                
-                res.setHeader('Content-Type', 'text/html')
-      
-                return res.status(200).end(html)
-            }
-            catch (error)
-            {
-                if(!isProduction)
-                {
-                    vite.ssrFixStacktrace(error)
-                }
-
-                console.log(error.stack)
-      
-                res.status(500).end(error.stack)
-            }
-    })
-
-    return app
+    app.use(compression())
+    app.use(base, sirv('./dist/client', {extensions: []}))
 }
 
-createServer().then((app) =>
-{
-    app.listen(3000, () =>
+app.use(
+    '*',
+    async (req, res) =>
     {
-        console.log('HTTP server is running at http://localhost:3000')
-    })
-})
+        try
+        {
+            const url = req.originalUrl.replace(base, '')
+
+            let template
+            let render
+
+            if(!isProduction)
+            {
+                template = await fs.readFile('./index.html', 'utf-8')
+                template = await vite.transformIndexHtml(url, template)
+                render = (await vite.ssrLoadModule('/src/entry.server.jsx')).render
+            }
+            else
+            {
+                template = templateHtml
+                render = (await import('./dist/server/entry.server.js')).render
+            }
+
+            const rendered = await render(url, ssrManifest)
+
+            const html = template
+                .replace(`<!--app-head-->`, rendered.head ?? '')
+                .replace(`<!--app-html-->`, rendered.html ?? '')
+
+            res.status(200).set({'Content-Type': 'text/html'}).end(html)
+        }
+        catch (e)
+        {
+            vite?.ssrFixStacktrace(e)
+            console.log(e.stack)
+            res.status(500).end(e.stack)
+        }
+    }
+)
+
+app.listen(
+    port,
+    () =>
+    {
+        console.log(`Server started at http://localhost:${port}`)
+    }
+)

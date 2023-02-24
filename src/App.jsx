@@ -1,6 +1,4 @@
-import * as React from 'react'
 import {Routes, Route, Outlet, Link} from 'react-router-dom'
-import './App.css'
 
 export default function App()
 {
@@ -30,6 +28,7 @@ export default function App()
         </div>
     )
 }
+
 
 function Layout()
 {
@@ -72,7 +71,7 @@ function Home()
 {
     return (
         <div>
-            <h2>Home!</h2>
+            <h2>Home</h2>
         </div>
     )
 }

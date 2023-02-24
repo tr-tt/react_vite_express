@@ -1,3 +1,7 @@
+# 0 Overview
+
+This small projects shows how to integrate react v18 with express using react-router-dom v6.
+
 # 1 Create project
 
 In a shell,
@@ -11,27 +15,18 @@ npm create vite@latest
 ### Production
 
 * compression ;
-* cross-env : inject env variables in npm commands ;
 * express : the js server ;
 * react : core library ;
 * react-dom : allows to build web ui ;
-* react-router-dom : builds a website with routes.
-
-Again in a shell,
-
-```sh
-npm i compression cross-env express react-router-dom
-```
+* react-router-dom : builds a website with routes ;
+* sirv : replaces express-static.
 
 ### Development
 
 * @vitejs/plugin-react ;
+* cross-env : inject env variables in npm commands ;
 * nodemon : reloads the server code on updates ;
 * vite : the bundler.
-
-```sh
-npm i -D nodemon
-```
 
 # 3 Launch
 
@@ -60,4 +55,5 @@ npm run start
 # 4 Documentation
 
 [react-router-dom](https://reactrouter.com/en/main/start/examples)
+
 [vite](https://github.com/vitejs/vite-plugin-react/tree/main/playground/ssr-react)
